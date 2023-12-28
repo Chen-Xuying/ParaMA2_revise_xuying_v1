@@ -3,18 +3,16 @@
 
 # data ignore
 data_output_test/
-embedding_stats/
+#embedding_stats/
 hin_data/*.txt
 !hin_data/hin_train_devanagari_plusembedding.txt
-!hin_data/hin_train_devanagari.txt
 !hin_data/hin_testin_devanagari.txt
 models/
-!models/cc.hi.300.bin
-!models/cc.en.300.vec
 
 # temp script ignore
 back_transliteration.py
 eval_hindi.py
+test.py
 
 #
 *.code-workspace
