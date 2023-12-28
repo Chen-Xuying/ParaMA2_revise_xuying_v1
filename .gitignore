@@ -15,5 +15,6 @@ eval_hindi.py
 test.py
 
 #
+venv/*
 *.code-workspace
 README_ParaMa2.md
