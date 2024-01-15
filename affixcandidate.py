@@ -10,6 +10,7 @@ modified content:
 '''
 
 from useembedding import UseEmbedding
+from languages import create_language
 
 import math
 from datetime import datetime
@@ -25,7 +26,13 @@ class AffixGenerator():
         '''
         Constructor
         '''
-        self.UseEmbedding = UseEmbedding(lang) # initialize the embedding model
+        self.lang = lang
+
+        if create_language(lang).has_pretrained_affix_list():
+            pass
+        else:
+            self.UseEmbedding = UseEmbedding(lang) # initialize the embedding model
+        
 
     def __gen_suf_analysis_tuple(self, word, word_dict, min_stem_len, max_suf_len, min_suf_len):
         sIndx = max(min_stem_len, len(word) - max_suf_len)
@@ -86,7 +93,7 @@ class AffixGenerator():
         df_suf = df_suf[df_suf['stem_count'] >= min_suf_freq] # stem_count - freq>1 的基础过滤
         print(df_suf.head(3))
         return df_suf
-        '''
+    '''
     
     def __gen_pref_analysis_tuple(self, word, word_dict, min_stem_len, max_pref_len, min_pref_len):
         eIndx = min(len(word) - min_stem_len, max_pref_len)
@@ -98,7 +105,7 @@ class AffixGenerator():
                 if similarity != 0:
                     return [pref,stem, similarity]
     def __gen_pref_cand(self, word_dict, min_stem_len, max_pref_len=6, min_pref_len=1, min_pref_freq = 1):
-        pref_tuple_list = Parallel(n_jobs=-2,backend='threading')(delayed(self.__gen_pref_analysis_tuple)(word, word_dict, min_stem_len, max_pref_len, min_pref_len) for word in tqdm(word_dict,desc='生成 prefix: ') if len(word) > min_stem_len)
+        pref_tuple_list = Parallel(n_jobs=-1,backend='threading')(delayed(self.__gen_pref_analysis_tuple)(word, word_dict, min_stem_len, max_pref_len, min_pref_len) for word in tqdm(word_dict,desc='生成 prefix: ') if len(word) > min_stem_len)
         pref_tuple_list = [x for x in pref_tuple_list if x is not None]
         df_pref = pd.DataFrame(pref_tuple_list, columns=['afx','stem','similarity'])
         df_pref['afx_count'] = df_pref.groupby('afx', group_keys=True)['stem'].transform('count')
@@ -141,9 +148,9 @@ class AffixGenerator():
                     similarity = self.UseEmbedding.get_similarity(word,stem)
                     if similarity != 0:
                         return [inf,stem, similarity]
-                    
+
     def __gen_inf_cand(self, word_dict, min_stem_len, max_inf_len=5, min_inf_len=2, min_inf_freq = 1):
-        inf_tuple_list = Parallel(n_jobs=-2,backend='threading')(delayed(self.__gen_inf_analysis_tuple)(word, word_dict, min_stem_len, max_inf_len, min_inf_len) for word in tqdm(word_dict,desc='生成 infix: ') if len(word) > min_stem_len)
+        inf_tuple_list = Parallel(n_jobs=-1,backend='threading')(delayed(self.__gen_inf_analysis_tuple)(word, word_dict, min_stem_len, max_inf_len, min_inf_len) for word in tqdm(word_dict,desc='生成 infix: ') if len(word) > min_stem_len)
         inf_tuple_list = [x for x in inf_tuple_list if x is not None]
         df_inf = pd.DataFrame(inf_tuple_list, columns=['afx','stem','similarity'])
         df_inf['afx_count'] = df_inf.groupby('afx', group_keys=True)['stem'].transform('count')
@@ -175,17 +182,17 @@ class AffixGenerator():
         return df_inf
         '''
 
-    def filter_df_afx(self, df_afx, top_N):
-
+    def __count_sort_save_df_afx(self, df_afx):
         df_afx['afx_score'] = df_afx.apply(lambda x:float(math.log10(1 + x['stem_count']) * x['similarity'] * math.log10(1+x['afx_count'] / len(df_afx))) , axis=1)
-            # * (stem_len_exp + df_afx['stem'].str.len()) 
+        # * (stem_len_exp + df_afx['stem'].str.len()) 
         # df_afx['afx_score'] = df_afx.apply(gen_score, axis=1)
         df_afx = df_afx.sort_values(by=['afx','afx_score','similarity','stem_count'], ascending=False)
-
         date_time = datetime.now().strftime("%y%m%d_%H%M%S")
-        print(f'file {date_time}.xlsx generating.')
-        df_afx.to_excel(f'./data_output_test/{date_time}.xlsx')
+        df_afx.to_csv(f'./data_output_test/{date_time}.csv')
+        print(f'affix list in file {date_time}.csv')
+        return df_afx
 
+    def filter_df_afx(self, df_afx, top_N):
         df_afx_filtered = df_afx.drop_duplicates(subset=['afx'], keep='first',inplace=False)
         if len(df_afx_filtered) >= top_N:
             print(f'Best {top_N} out of {len(df_afx_filtered)} affixes generated.')
@@ -195,17 +202,29 @@ class AffixGenerator():
             return df_afx_filtered.set_index('afx')['afx_score'].to_dict()
 
     def gen_N_best_suffixes(self, word_dict, min_stem_len=3, max_suf_len=5, min_suf_len=1, min_suf_freq=10, best_N=500):
-        df_suf = self.__gen_suf_cand(word_dict, min_stem_len, max_suf_len, min_suf_len, min_suf_freq)
-        best_suffix_list = self.filter_df_afx(df_suf, best_N) 
+        if create_language(self.lang).has_pretrained_affix_list():
+            df_suf = pd.read_csv('hin_data/pretrained_affix/suf.csv')
+        else:
+            df_suf = self.__gen_suf_cand(word_dict, min_stem_len, max_suf_len, min_suf_len, min_suf_freq)
+            df_suf = self.__count_sort_save_df_afx(df_suf)
+        best_suffix_list = self.filter_df_afx(df_suf, best_N)
         return best_suffix_list
 
     def gen_N_best_prefixes(self, word_dict, min_stem_len=3, max_pref_len=5, min_pref_len=1, min_pref_freq=10, best_N=500):
-        df_pref = self.__gen_pref_cand(word_dict, min_stem_len, max_pref_len, min_pref_len, min_pref_freq)
+        if create_language(self.lang).has_pretrained_affix_list():
+            df_pref = pd.read_csv('hin_data/pretrained_affix/pref.csv')
+        else:
+            df_pref = self.__gen_pref_cand(word_dict, min_stem_len, max_pref_len, min_pref_len, min_pref_freq)
+            df_pref = self.__count_sort_save_df_afx(df_pref)
         best_prefix_list = self.filter_df_afx(df_pref, best_N)
         return best_prefix_list
     
     def gen_N_best_infixes(self, word_dict, min_stem_len=3, max_inf_len=4, min_inf_len=2, min_inf_freq=10, best_N=500):
-        df_inf = self.__gen_inf_cand(word_dict, min_stem_len, max_inf_len, min_inf_len, min_inf_freq)
+        if create_language(self.lang).has_pretrained_affix_list():
+            df_inf = pd.read_csv('hin_data/pretrained_affix/inf.csv')
+        else:
+            df_inf = self.__gen_inf_cand(word_dict, min_stem_len, max_inf_len, min_inf_len, min_inf_freq)
+            df_inf = self.__count_sort_save_df_afx(df_inf)
         best_infix_list = self.filter_df_afx(df_inf, best_N)
         return best_infix_list
     

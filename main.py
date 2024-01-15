@@ -11,7 +11,9 @@ from dataio import read_item_freq_list, read_item_list
 from morphanalyzer import MorphAnalyzer
 from parameters import Parameter
 from typology import MorphTypology, get_gold_features
-from languages import LanguageCatalog
+from languages import LanguageCatalog, create_language, Hindi
+
+from tqdm import tqdm
 
 
 def save_segmentations(word_segs, outfile):
@@ -36,12 +38,13 @@ def save_segmentations_1(word_segs, outfile):
 
 def seg_file(infile, params, outfile = None, infile_test = None, outfile_test = None, add_test_to_train = True, morph_typology=None, outfile_der=None, outfile_pdgm = None):
     print('| Reading data...')
-    word_freq_list = read_item_freq_list(infile) # [(item1, freq1), (itme2, freq2),…,]
-    print('Read word count: %s' % (len(word_freq_list)))
-    word_list_good = [(word, freq) for word, freq in word_freq_list if freq >= params.min_word_freq] # params.min_word_freq 每个语种都是1
-    print('Read word count (good_list): %s' % (len(word_freq_list)))
+    word_freq_list = read_item_freq_list(infile) # read train file [(item1, freq1), (itme2, freq2),…,]
+    lang = LanguageCatalog.Hindi # .Other
+    language = create_language(lang)
+    word_list_good = [(word, freq) for word, freq in tqdm(word_freq_list) if freq >= params.min_word_freq and language.is_alphabetic_word(word)] # params.min_word_freq 每个语种都是1 # remains: 1228958
+    print('Read word count from file (filtered for alphabetic word) : %s' % (len(word_list_good)))
     if infile_test != None:
-        test_list = read_item_list(infile_test) # 一行一个元素
+        test_list = read_item_list(infile_test) # read test file
         print('Test words: %s' % (len(test_list)))
         if add_test_to_train:
             print('| Add test words to training list...')
@@ -52,11 +55,11 @@ def seg_file(infile, params, outfile = None, infile_test = None, outfile_test = 
                 else:
                     word_dict[word] = 1
             word_list_good = sorted(word_dict.items(), key=lambda x: -x[1]) # 按 freq 排序
-    print('No. of words for training: %s' % (len(word_list_good)))
+    print('No. of words for training (filtered): %s' % (len(word_list_good)))
     print('| Analyzing...')
     if not morph_typology:
         morph_typology = MorphTypology()
-    lang = LanguageCatalog.Hindi # .Other # 为啥 lang 不是作为一个参数穿进去的，而是默认Other？？
+    
     morph_analyzer = MorphAnalyzer(lang, dict(word_list_good), morph_typology, params)
     if outfile != None:
         print('| Segmenting...')
@@ -79,8 +82,8 @@ def seg_file(infile, params, outfile = None, infile_test = None, outfile_test = 
 ## ----------------- Simply run the segmentor with default parameters ------------------
 def run():
 
-    infile_train = r'/Users/chenxuying/coding_playground/dissertation/ParaMA2-master/hin_data/hin_train_devanagari_plusembedding.txt'
-    infile_test = r'/Users/chenxuying/coding_playground/dissertation/ParaMA2-master/hin_data/hin_testin_devanagari.txt'
+    infile_train = r'hin_data/hin_train_devanagari.txt'
+    infile_test = r'hin_data/hin_goldseg_deva.csv'
     outfile_test = r'./data_output_test/hin_out_test_deva.txt'
     outfile_der=r'./data_output_test/hin_out_derivation_deva.txt'
     outfile_pdgm = r'./data_output_test/hin_out_paradigm_deva.txt'

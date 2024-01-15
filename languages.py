@@ -5,6 +5,8 @@ Created on Nov 15, 2018
 '''
 
 from enum import Enum
+import pandas as pd
+import os
 
 class LanguageCatalog(Enum):
     '''
@@ -35,7 +37,7 @@ class Language():
     '''
 
 
-    def __init__(self, name, lang_code, consonants={}, vowels={}, alphabet={}, typology = None, lexicon = {}):
+    def __init__(self, name, lang_code, consonants={}, vowels={}, alphabet={}, typology = None, lexicon = {}, pretrained_affix=False):
         '''
         '''
         self.__name = name
@@ -45,7 +47,7 @@ class Language():
         self.__alphabet = alphabet
         self.__typology = typology
         self.__lexicon = lexicon
-    
+        self.__pretrained_affix = pretrained_affix
     
     def all_consonants(self):
         return sorted(self.__consonants)
@@ -70,12 +72,26 @@ class Language():
     
     def is_in_alphabet(self, ch):
         return ch in self.__alphabet
-    
+
+    def is_alphabetic_word(self, word):
+        if len(word) <= 1:
+            return False
+        for ch in word:
+            if not ch in self.__alphabet:
+                return False
+        return True
+
     def is_in_lexicon(self, word):
         return word in self.__lexicon
     
     def name(self):
         return self.__name
+
+    def has_pretrained_affix_list(self):
+        if self.__pretrained_affix:
+            return True
+        else:
+            return False
     
     def filter_alphabetic_words(self, word_list, keep_hyphen=True, keep_apos=True):
         filtered_word_list = []
@@ -103,7 +119,7 @@ class English(Language):
         consonants = set('bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ')
         vowels =  set('aeiouAEIOU')
         alphabet = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
-        typology = None  # 设置TYPOLOGY是为了？
+        typology = None  # 设置TYPOLOGY是None, 为了？
         super().__init__(name, lang_code, consonants, vowels, alphabet, typology)
 
 class Turkish(Language):
@@ -159,24 +175,34 @@ class HindiRomanized(Language):
 class Hindi(Language):
     def __init__(self):
         '''
-        devanagari
+        Hindi in Devanagari
         '''
         name = 'Hindi' 
         lang_code = 'hin'
 
+        devanagari_nasal_marks = [chr(i) for i in range(0x0900, 0x0904)]
         devanagari_consonant = [chr(i) for i in range(0x0915, 0x093A)] # ['क', 'ख', 'ग', 'घ', 'ङ', 'च', 'छ', 'ज', 'झ', 'ञ', 'ट', 'ठ', 'ड', 'ढ', 'ण', 'त', 'थ', 'द', 'ध', 'न', 'ऩ', 'प', 'फ', 'ब', 'भ', 'म', 'य', 'र', 'ऱ', 'ल', 'ळ', 'ऴ', 'व', 'श', 'ष', 'स', 'ह']
         devanagari_consonant_marks = [chr(i) for i in range(0x093E, 0x094D)] # ['ा', 'ि', 'ी', 'ु', 'ू', 'ृ', 'ॄ', 'ॅ', 'ॆ', 'े', 'ै', 'ॉ', 'ॊ', 'ो', 'ौ']
-        devanagari_nasal_marks = [chr(i) for i in range(0x0900, 0x0904)]
+        
         consonants = set(devanagari_consonant + devanagari_consonant_marks + devanagari_nasal_marks)
         
         devanagari_vowels = [chr(i) for i in range(0x0905, 0x0915)]      # ['अ', 'आ', 'इ', 'ई', 'उ', 'ऊ', 'ऋ', 'ऌ', 'ऍ', 'ऎ', 'ए', 'ऐ', 'ऑ', 'ऒ', 'ओ', 'औ']
         devanagari_vowel_marks = [chr(i) for i in range(0x093E, 0x094D)] # ['ा', 'ि', 'ी', 'ु', 'ू', 'ृ', 'ॄ', 'ॅ', 'ॆ', 'े', 'ै', 'ॉ', 'ॊ', 'ो', 'ौ']
         vowels =  set(devanagari_vowels + devanagari_vowel_marks)
 
-        alphabet = set([chr(i) for i in range(0x0900, 0x0980)])
+        devanagari = set([chr(i) for i in range(0x0900, 0x0980)])
         digit = set([chr(i) for i in range(0x0966, 0x0970)])    #'०१२३४५६७८९'
+        alphabet = devanagari - digit
         typology = None
-        super().__init__(name, lang_code, consonants, vowels, alphabet, typology)
+        # pretrained_affix = False
+        if os.path.exists('hin_data/pretrained_affix/suf.csv') and os.path.exists('./hin_data/pretrained_affix/pref.csv') and os.path.exists('hin_data/pretrained_affix/inf.csv'):
+            pretrained_affix = True
+            self.__pretrained_affix = True
+            super().__init__(name, lang_code, consonants, vowels, alphabet, typology, pretrained_affix=True)
+        else:
+            pretrained_affix = False
+            self.__pretrained_affix = False
+            super().__init__(name, lang_code, consonants, vowels, alphabet, typology, pretrained_affix= False)
 
         # print('devanagari_consonant: ', consonants,
         #       '\ndevanagari_vowels: ', vowels,
@@ -185,9 +211,9 @@ class Hindi(Language):
 
     def is_devanagari(word):
         for character in word:
-            if '\u0900' <= character <= '\u097F':
-                return True
-        return False
+            if not '\u0900' <= character <= '\u097F':
+                return False
+        return True
 
 class Hungarian(Language):
     def __init__(self):
@@ -325,7 +351,7 @@ def create_language(lang):
 
 
 if __name__ == '__main__':
-    Hindi = Hindi()
+    # Hindi = Hindi()
     pass
 
 

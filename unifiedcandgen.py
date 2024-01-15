@@ -73,7 +73,7 @@ class UniCandGen():
         self.__max_inf_len = params.max_inf_len
         # ----------- Private Attributes --------------------
         self.__lexicon = lexicon
-        self.__prefs = prefs # 但是这里的affix是挑bestn挑出来的？？？
+        self.__prefs = prefs
         self.__sufs = sufs
         self.__infs = infs
         self.__create_index()
@@ -1583,7 +1583,8 @@ class UniCandGen():
         # print("\n\tprint cand_pats: \t",cand_pats) # 
         return cand_pats
     
-def test():
+def test(lang):
+    # en sample words
     infix_words = 'kumakain kinakain dinulot'.split()
     prefix_words = 'makakain unfold reread unskipped'.split()
     suffix_words = 'folding folks folded skipped running carried sanger folling folmer folms'.split()
@@ -1592,29 +1593,44 @@ def test():
     r_red_words = ''
     r_vow_words = ''.split()
     root_words = 'kain omo kyere fold folk dulot read skip run carry sing'.split()
-    lexicon = set(infix_words + prefix_words + suffix_words + redup_words + l_red_words + root_words)
-    prefs = set('un im re'.split())
-    infs = set('um in'.split())
-    sufs = set('s ing ed er ment'.split())
+    lexicon_en = set(infix_words + prefix_words + suffix_words + redup_words + l_red_words + root_words)
+    
+    # devanagari sample words
+    infix_deva = 'हिगोमिनाकिस '.split()
+    prefix_deva = 'प्रयोचना प्रतिमाल प्रतिभा दुर्घटना दुर्भाग्य'.split()
+    suffix_deva = 'करना करते करती करतें करतों करतीं'.split()
+    l_red_words_deva = 'किसकिसा किसकिसाना टुपचुप टुपचुपना परंपरा'.split()
+    r_red_words_deva = 'चमाना विश्वविद्यालय विश्वविद्यालयाना चवाहलाल चवाहलालाना'.split()
+    r_vow_words_deva = 'असज्जन अमृतीकरण'.split()
+    root_deva = 'उ्मीद चवाहलाल विश्ववसनीयता असज्ज बदन्नोरे वैनब्रग'.split()
     vowels = set('aeiou')
+    lexicon_deva = set(l_red_words_deva + r_red_words_deva + r_vow_words_deva + root_deva)
+
+    prefs = set('प्रति प्र'.split())
+    infs = set('मिना'.split())
+    sufs = set('ना ते ती तें तों तीं'.split())
+    
     from typology import MorphTypology # newly-add
     morph_typology = MorphTypology()
     from parameters import Parameter # newly-add
     params = Parameter()
-    from languages import English # newly-add
-    lang = English()
+
     morph_typology.print_features()
-    cand_gen = UniCandGen(lang, morph_typology, params, lexicon, prefs=prefs, infs=infs, sufs=sufs)
-    for word in lexicon:
+    cand_gen = UniCandGen(lang, morph_typology, params, lexicon_deva, prefs=prefs, infs=infs, sufs=sufs)
+    for word in lexicon_deva:
         cand_pats = cand_gen.get_candidate_analyses(word)
         info_str = word + ':'
         for root, proc in cand_pats:
             info_str += ' %s(%s, %s, %s)' % (proc.morph_type().value, root, proc.change_key(), proc.pat())
         print(info_str)
 
-
 if __name__ == '__main__':
-    test()
+    from languages import English, Hindi # newly-add
+    # lang_en = English()
+    # test(lang_en)
+
+    lang_hi = Hindi()
+    test(lang_hi)
     pass
 
 

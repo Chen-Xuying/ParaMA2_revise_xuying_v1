@@ -14,6 +14,7 @@ from derivationchain import DerivationChain
 from unifiedcandgen import UniCandGen
 from affixcandidate import AffixGenerator
 from languages import create_language
+from typology import MorphType
 
 from useembedding import UseEmbedding
 from joblib import Parallel, delayed
@@ -32,14 +33,21 @@ class MorphAnalyzer():
         self.__do_hyphen = param.do_hyphen
         self.__do_apostrophe = param.do_apostrophe
         self.__apostrophe_char = param.apostrophe_char
-        lexicon = set(lexicon) # set(dict) --> set: {dict.keys()}
+        # lexicon = set(lexicon) # set(dict) --> set: {dict.keys()}. origin 1533048
+        language = create_language(lang)
+        # for word in tqdm(lexicon,desc='loading lexicon for training'):
+        #     if not language.is_alphabetic_word(word):
+        #         lexicon.remove(word)
+
+        # lexicon = [word for word in tqdm(lexicon,desc='loading lexicon for training') if language.is_alphabetic_word(word)] # 1246052 remain
         if not self.__case_sensitive: # default: True
             lexicon = self.__process_uppercase_words(lexicon)
         if self.__do_hyphen:
             lexicon = self.__process_hyphen_words(lexicon)
         if self.__do_apostrophe:
             lexicon = self.__process_apostrophe_words(lexicon)
-        self.__lexicon = set(lexicon) # 以dict的形式传入参数lexicon, set(lexicon)为键/值集合。{word:freq} #处理过大小写/hyphen/apostrophe的问题
+        self.__lexicon = set(lexicon)
+        print(f"{len(self.__lexicon)} words remains after filtering.") # 以dict的形式传入参数lexicon, set(lexicon)为键/值集合。{word:freq} #处理过大小写/hyphen/apostrophe的问题
         #self.__use_trans = param.use_trans
         self.__do_pruning = param.do_pruning # default: on
         self.__morph_typology = morph_typology
@@ -54,10 +62,12 @@ class MorphAnalyzer():
         #
         #self.__morph_cand_generators = create_morph_cand_generators(morph_typology, lexicon, param)
         # lexicon = dict(list(lexicon))
-        self.__sufs = AffixGenerator(lang).gen_N_best_suffixes(lexicon, self.__param.min_stem_len, self.__param.max_suf_len, self.__param.min_suf_len, min_suf_freq=3, best_N=200) # {afx:afx_score}
-        self.__prefs = AffixGenerator(lang).gen_N_best_prefixes(lexicon, self.__param.min_stem_len, self.__param.max_pref_len, self.__param.min_pref_len, min_pref_freq=3, best_N=200)
-        # 加上参数, 语言判断
-        self.__infs = AffixGenerator(lang).gen_N_best_infixes(lexicon, self.__param.min_stem_len, self.__param.max_inf_len, self.__param.min_inf_len, min_inf_freq=3, best_N=50)
+        print('Start to generate affixes...order: suffix-->prefix-->infix')
+
+        self.__sufs = AffixGenerator(lang).gen_N_best_suffixes(lexicon, self.__param.min_stem_len, self.__param.max_suf_len, self.__param.min_suf_len, min_suf_freq=3, best_N=500) # {afx:afx_score}
+        self.__prefs = AffixGenerator(lang).gen_N_best_prefixes(lexicon, self.__param.min_stem_len, self.__param.max_pref_len, self.__param.min_pref_len, min_pref_freq=3, best_N=500)
+        if self.__morph_typology.has_morph_feature(MorphType.INFIXATION):
+            self.__infs = AffixGenerator(lang).gen_N_best_infixes(lexicon, self.__param.min_stem_len, self.__param.max_inf_len, self.__param.min_inf_len, min_inf_freq=3, best_N=50)
         self.__unified_cand_generator = UniCandGen(create_language(lang), self.__morph_typology, self.__param, lexicon, self.__prefs, self.__sufs, self.__infs)
         # Keep the frequencies of each possible stem changes and choose the top N as valid and redo the analyses again
         self.__stem_change_count = {}
@@ -70,18 +80,19 @@ class MorphAnalyzer():
 
 
     def __analyze(self):
-        print('1. Generating candidates...')
-        word_root_proc_cands = Parallel(n_jobs=-2)(delayed(self.__get_typological_candidates_wordtuple)(word) for word in self.__lexicon) #[(word, self.__get_typological_candidates(word)) for word in self.__lexicon]
-        print('\nword_root_proc_cands[:5]:',word_root_proc_cands[:5],sep='\t')
-        self.__ambiguiity_degree_dist = self.__get_ambiguity_degree_dist(word_root_proc_cands) # 
+        # word_root_proc_cands = [(word, self.__get_typological_candidates(word)) for word in tqdm(self.__lexicon,desc=f'1. Generating Candidates from {len(self.__lexicon)} words:')] #[(word, self.__get_typological_candidates(word)) for word in self.__lexicon]
+        word_root_proc_cands = Parallel(n_jobs=-1,backend='threading')(delayed(self.__get_typological_candidates_wordtuple)(word) for word in self.__lexicon) #[(word, self.__get_typological_candidates(word)) for word in self.__lexicon]
+        print("word_root_proc_cands[:5]:",word_root_proc_cands[:5],
+              f'length:{len(word_root_proc_cands)}',sep='\n')
+        self.__ambiguiity_degree_dist = self.__get_ambiguity_degree_dist(word_root_proc_cands)
 
-        self.UseEmbedding = UseEmbedding(self.__lang) # initialize the embedding model ## 看一下这里调的 lang 到底是什么
+        # self.UseEmbedding = UseEmbedding(self.__lang)
         # word_root_proc_cands_filtered = [self.__filter_candidates_embed(word_proc_cands) for word_proc_cands in word_root_proc_cands]
         word_root_proc_cands_filtered = word_root_proc_cands
         self.__ambiguiity_degree_dist_filtered = self.__get_ambiguity_degree_dist(word_root_proc_cands_filtered)
         self.__word_root_proc_cands = word_root_proc_cands_filtered
         print("\nself.__word_root_proc_cands[:10]:\t",self.__word_root_proc_cands[:10])
-        #
+
         print('2. Training probabilistic model...')
         bayes_model = BayesianModel()
         bayes_model.train(word_root_proc_cands)
@@ -107,6 +118,8 @@ class MorphAnalyzer():
         # Get the stem change counts
         #self.__stem_change_count = self.__count_final_stem_changes(self.__final_word_root_proc)
     
+    def __return_original_word(self, word): # for joblib
+        return word
     
     def __undo_uppercase_word_seg(self, word_seg, word_ori):
         seg_0 = word_ori[0] + word_seg[0][1:]
@@ -341,7 +354,7 @@ class MorphAnalyzer():
         fout.close()
     
 if __name__ == '__main__':
-    affixgenerator = AffixGenerator('hi')
+    pass
 
 
 

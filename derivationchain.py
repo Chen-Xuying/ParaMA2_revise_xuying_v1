@@ -285,7 +285,7 @@ class DerivationChain():
             if chain_len in fouts_len:
                 fout = fouts_len[chain_len]
             else:
-                fout = open(outfile + '_len%s.txt' % (chain_len), 'w', -1, 'utf-8')
+                fout = open(outfile + '_len%s.txt' % (chain_len), 'w+', -1, 'utf-8')
                 fouts_len[chain_len] = fout
             fout.write('Chain: (%s) (count: %s)\n' % (', '.join(chain_pat_tup), len(word_change_list)))
             fout.write('-------------------------------------------------\n')

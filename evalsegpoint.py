@@ -41,7 +41,6 @@ class EvalSegPoint():
     
     
     def eval_seg_points(self, seg_gold, seg_test):
-        # print("seg_gold[:1],seg_test[:1]\t", seg_gold[:1],seg_test[:1]) # [('अंक', [['ank']])] [('अंक', ['अंक'])]
         if len(seg_gold) != len(seg_test): return 0.0, 0.0, 0.0
         correct_total, gold_total, pred_total = 0, 0, 0
         j = 0
@@ -53,7 +52,7 @@ class EvalSegPoint():
             seg_points_test = set(self.__get_seg_points(test))
             pred_size = len(seg_points_test)
             best_correct, best_total, min_best_total = 0.0, 0.0, 100.0
-            for gold in goldsegs[1]:
+            for gold in [goldsegs]:
                 gold_word = goldsegs[0]# ''.join(gold)
                 if word != gold_word:
                     # print(goldsegs, test)
@@ -107,7 +106,7 @@ class EvalSegPoint():
     def eval_seg_morphemes(self, seg_gold, seg_test):
         if len(seg_gold) != len(seg_test): return 0.0, 0.0, 0.0
         tp, fp, fn = 0, 0, 0
-        for i in range(len(seg_gold)):
+        for i in range(len([seg_gold])):
             goldsegs = seg_gold[i]
             test = seg_test[i]
             seg_morphemes_test = set(self.__get_seg_morphemes(test))
@@ -128,15 +127,16 @@ class EvalSegPoint():
         return self.__calc_performance(tp, fp, fn)
     
     def eval_last_morphemes(self, seg_gold, seg_test):
-        if len(seg_gold) != len(seg_test): return 0.0, 0.0, 0.0
+        if len(seg_gold) != len(seg_test):
+            return 0.0, 0.0, 0.0
         tp, fp, fn = 0, 0, 0
-        for i in range(len(seg_gold)):
+        for i in range(len([seg_gold])):
             goldsegs = seg_gold[i]
             test = seg_test[i]
             last_morph_indx = {self.__get_seg_morphemes(test)[-1]}
             _prec_best, _rec_best, f1_best = 0.0, 0.0, -1.0
             tp_best, fp_best, fn_best = 0, 0, 0
-            for gold in goldsegs:
+            for gold in [goldsegs]:
                 seg_morphemes_gold_indx = {self.__get_seg_morphemes(gold)[-1]}
                 tp_local = len(seg_morphemes_gold_indx & last_morph_indx)
                 fp_local = len(last_morph_indx - seg_morphemes_gold_indx)

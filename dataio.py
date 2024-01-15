@@ -26,7 +26,7 @@ def read_item_list(infile):
     item_list = []
     fin = open(infile, 'r', -1, 'utf-8')
     for line in fin:
-        line = line.strip()
+        line = line.strip().split(',')[0]
         if len(line) == 0:
             print('Empty line: %s' % line)
             continue
