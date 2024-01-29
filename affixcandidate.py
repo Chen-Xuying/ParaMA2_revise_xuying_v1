@@ -184,9 +184,10 @@ class AffixGenerator():
 
     def __count_sort_save_df_afx(self, df_afx):
         df_afx['afx_score'] = df_afx.apply(lambda x:float(math.log10(1 + x['stem_count']) * x['similarity'] * math.log10(1+x['afx_count'] / len(df_afx))) , axis=1)
-        # * (stem_len_exp + df_afx['stem'].str.len()) 
+        # * (stem_len_exp + df_afx['stem'].str.len())
         # df_afx['afx_score'] = df_afx.apply(gen_score, axis=1)
         df_afx = df_afx.sort_values(by=['afx','afx_score','similarity','stem_count'], ascending=False)
+        df_afx = df_afx[df_afx.columns[1:]] # drop the first column(old index)
         date_time = datetime.now().strftime("%y%m%d_%H%M%S")
         df_afx.to_csv(f'./data_output_test/{date_time}.csv')
         print(f'affix list in file {date_time}.csv')

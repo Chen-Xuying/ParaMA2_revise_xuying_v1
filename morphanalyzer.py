@@ -3,7 +3,7 @@ Created on May 3, 2018
 @author: xh
 @modifiedby: chenxuying
 '''
-
+import codecs
 
 from bayesian import BayesianModel
 from typology import MorphTypology
@@ -33,13 +33,7 @@ class MorphAnalyzer():
         self.__do_hyphen = param.do_hyphen
         self.__do_apostrophe = param.do_apostrophe
         self.__apostrophe_char = param.apostrophe_char
-        # lexicon = set(lexicon) # set(dict) --> set: {dict.keys()}. origin 1533048
-        language = create_language(lang)
-        # for word in tqdm(lexicon,desc='loading lexicon for training'):
-        #     if not language.is_alphabetic_word(word):
-        #         lexicon.remove(word)
-
-        # lexicon = [word for word in tqdm(lexicon,desc='loading lexicon for training') if language.is_alphabetic_word(word)] # 1246052 remain
+        # language = create_language(lang)
         if not self.__case_sensitive: # default: True
             lexicon = self.__process_uppercase_words(lexicon)
         if self.__do_hyphen:
@@ -66,8 +60,10 @@ class MorphAnalyzer():
 
         self.__sufs = AffixGenerator(lang).gen_N_best_suffixes(lexicon, self.__param.min_stem_len, self.__param.max_suf_len, self.__param.min_suf_len, min_suf_freq=3, best_N=500) # {afx:afx_score}
         self.__prefs = AffixGenerator(lang).gen_N_best_prefixes(lexicon, self.__param.min_stem_len, self.__param.max_pref_len, self.__param.min_pref_len, min_pref_freq=3, best_N=500)
-        if self.__morph_typology.has_morph_feature(MorphType.INFIXATION):
-            self.__infs = AffixGenerator(lang).gen_N_best_infixes(lexicon, self.__param.min_stem_len, self.__param.max_inf_len, self.__param.min_inf_len, min_inf_freq=3, best_N=50)
+        # if self.__morph_typology.has_morph_feature(MorphType.INFIXATION):
+        self.__infs = AffixGenerator(lang).gen_N_best_infixes(lexicon, self.__param.min_stem_len, self.__param.max_inf_len, self.__param.min_inf_len, min_inf_freq=3, best_N=50)
+        # else:
+        #     self.__infs = {}
         self.__unified_cand_generator = UniCandGen(create_language(lang), self.__morph_typology, self.__param, lexicon, self.__prefs, self.__sufs, self.__infs)
         # Keep the frequencies of each possible stem changes and choose the top N as valid and redo the analyses again
         self.__stem_change_count = {}
@@ -81,7 +77,7 @@ class MorphAnalyzer():
 
     def __analyze(self):
         # word_root_proc_cands = [(word, self.__get_typological_candidates(word)) for word in tqdm(self.__lexicon,desc=f'1. Generating Candidates from {len(self.__lexicon)} words:')] #[(word, self.__get_typological_candidates(word)) for word in self.__lexicon]
-        word_root_proc_cands = Parallel(n_jobs=-1,backend='threading')(delayed(self.__get_typological_candidates_wordtuple)(word) for word in self.__lexicon) #[(word, self.__get_typological_candidates(word)) for word in self.__lexicon]
+        word_root_proc_cands = Parallel(n_jobs=-1,backend='threading')(delayed(self.__get_typological_candidates_wordtuple)(word) for word in tqdm(self.__lexicon,desc=f'1. Generating Candidates from {len(self.__lexicon)} words:')) # 无多线程： [(word, self.__get_typological_candidates(word)) for word in self.__lexicon]
         print("word_root_proc_cands[:5]:",word_root_proc_cands[:5],
               f'length:{len(word_root_proc_cands)}',sep='\n')
         self.__ambiguiity_degree_dist = self.__get_ambiguity_degree_dist(word_root_proc_cands)

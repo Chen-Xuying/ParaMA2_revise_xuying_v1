@@ -1596,22 +1596,22 @@ def test(lang):
     lexicon_en = set(infix_words + prefix_words + suffix_words + redup_words + l_red_words + root_words)
     
     # devanagari sample words
-    infix_deva = 'हिगोमिनाकिस '.split()
+    infix_deva = 'हिगोमिनाकिस'.split()
     prefix_deva = 'प्रयोचना प्रतिमाल प्रतिभा दुर्घटना दुर्भाग्य'.split()
-    suffix_deva = 'करना करते करती करतें करतों करतीं'.split()
+    suffix_deva = 'करना करते करती करतें करतों करतीं विश्वविद्यालय'.split()
     l_red_words_deva = 'किसकिसा किसकिसाना टुपचुप टुपचुपना परंपरा'.split()
-    r_red_words_deva = 'चमाना विश्वविद्यालय विश्वविद्यालयाना चवाहलाल चवाहलालाना'.split()
+    r_red_words_deva = 'चमाना चवाहलाल चवाहलालाना'.split() # 
     r_vow_words_deva = 'असज्जन अमृतीकरण'.split()
-    root_deva = 'उ्मीद चवाहलाल विश्ववसनीयता असज्ज बदन्नोरे वैनब्रग'.split()
-    vowels = set('aeiou')
-    lexicon_deva = set(l_red_words_deva + r_red_words_deva + r_vow_words_deva + root_deva)
+    root_deva = 'कर योचना माल उ्मीद र्घटना र्भाग्य चवाहलाल विश्ववसनीयता असज्ज बदन्नोरे वैनब्रग'.split() # inanalytic
+    vowels = set([chr(i) for i in range(0x0905, 0x0915)] + [chr(i) for i in range(0x093E, 0x094D)])
+    lexicon_deva = set(prefix_deva + suffix_deva + l_red_words_deva  + root_deva) # infix_deva + r_vow_words_deva   ??+ r_red_words_deva
 
-    prefs = set('प्रति प्र'.split())
-    infs = set('मिना'.split())
-    sufs = set('ना ते ती तें तों तीं'.split())
+    prefs = set('प्रति प्र दुर्'.split())
+    infs = set() # set('मिना'.split())
+    sufs = set('ना ते ती तें तों तीं लय'.split())
     
-    from typology import MorphTypology # newly-add
-    morph_typology = MorphTypology()
+    from typology import get_gold_features # , MorphTypology # newly-add
+    morph_typology = get_gold_features(lang) # MorphTypology()
     from parameters import Parameter # newly-add
     params = Parameter()
 
@@ -1619,7 +1619,7 @@ def test(lang):
     cand_gen = UniCandGen(lang, morph_typology, params, lexicon_deva, prefs=prefs, infs=infs, sufs=sufs)
     for word in lexicon_deva:
         cand_pats = cand_gen.get_candidate_analyses(word)
-        info_str = word + ':'
+        info_str = word + ' :'
         for root, proc in cand_pats:
             info_str += ' %s(%s, %s, %s)' % (proc.morph_type().value, root, proc.change_key(), proc.pat())
         print(info_str)
